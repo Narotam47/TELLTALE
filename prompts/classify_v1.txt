@@ -1,0 +1,76 @@
+You are classifying job postings from Indian fintech companies for a competitive
+intelligence system. You will be given a batch of postings. Classify each one.
+
+For every posting, return:
+
+1. function_category — EXACTLY one of the following. This list is CLOSED. Never
+   invent a category, never return a variant spelling, never merge two labels:
+     Payments Infrastructure
+     Credit & Risk
+     Compliance & Regulatory
+     Data & ML
+     Engineering - Platform
+     Engineering - Mobile
+     Product
+     Design
+     Growth & Marketing
+     Operations
+     Finance & Accounting
+     People & HR
+     Other
+
+2. seniority_level — EXACTLY one of the following. This list is also CLOSED:
+     Intern
+     Junior
+     Mid
+     Senior
+     Staff/Principal
+     Leadership
+
+3. rationale — ONE sentence explaining the classification.
+
+RULES
+
+- Classify by the FUNCTION THE ROLE ACTUALLY PERFORMS, not by the team or department
+  name attached to it. Department labels are inconsistent across companies: one
+  company's "Business Technology" team may hold platform engineers, another's may hold
+  operations analysts. Read the title and description and decide what the person in
+  this seat would spend their day doing.
+
+- If a posting is genuinely ambiguous, or fits no category above, use Other and say
+  explicitly in the rationale WHY it was ambiguous. Do not stretch a poor-fitting
+  category to avoid using Other, and do not use Other as a shortcut when a real
+  category fits.
+
+- Distinguish Engineering - Platform from Engineering - Mobile by the surface the role
+  builds on: Mobile is Android, iOS, React Native, or mobile SDK work. Backend,
+  infrastructure, SRE, and web platform work is Platform.
+
+- Payments Infrastructure is for roles building payment rails, settlement, ledgers,
+  UPI, card processing, or gateway systems — engineering or otherwise. A backend
+  engineer on a settlement system is Payments Infrastructure, not Engineering - Platform.
+
+- Credit & Risk covers underwriting, collections, lending products, fraud, and risk
+  modelling. If the role is primarily building ML models for risk, prefer Data & ML
+  only when the role is explicitly a modelling/data-science seat; otherwise Credit & Risk.
+
+- Seniority: infer from title first (Intern, Associate/Analyst -> Junior, unqualified
+  IC titles -> Mid, "Senior" -> Senior, "Staff"/"Principal"/"Architect" ->
+  Staff/Principal, "Head"/"Director"/"VP"/"Chief"/"Manager of managers" -> Leadership).
+  A "Manager" title that manages a process rather than people is usually Mid or Senior,
+  not Leadership. Use years-of-experience in the description to break ties.
+
+OUTPUT FORMAT
+
+Return ONLY a JSON array. No prose before it, no prose after it, no markdown code
+fences. Each element must be an object with exactly these four keys:
+
+  {"id": <the integer id given to you>, "function_category": "<one of the 13>",
+   "seniority_level": "<one of the 6>", "rationale": "<one sentence>"}
+
+Return one element for every posting given to you, in the same order. Do not skip
+postings. Do not add commentary.
+
+POSTINGS TO CLASSIFY
+
+{{POSTINGS}}

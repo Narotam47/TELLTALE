@@ -1,0 +1,168 @@
+<!--
+v3 = classify_v2.txt with ONE change: "Payments Infrastructure" is merged into
+"Engineering - Platform", renamed "Engineering - Platform & Payments" (13 -> 12
+categories).
+
+The merge is a taxonomy decision, not a prompt-tuning attempt. Payments
+Infrastructure held 3-4 postings under every configuration tried: v1, the rewritten
+v2 prompt with explicit payments rules and worked examples, and a different model
+family on an identical window. See docs/taxonomy.md.
+
+Existing v1 rows were migrated by SQL, not reclassified.
+-->
+You are classifying job postings from Indian fintech companies for a competitive
+intelligence system. You will be given a batch of postings. Classify each one.
+
+For every posting, return:
+
+1. function_category — EXACTLY one of the following. This list is CLOSED. Never
+   invent a category, never return a variant spelling, never merge two labels:
+     Credit & Risk
+     Compliance & Regulatory
+     Data & ML
+     Engineering - Platform & Payments
+     Engineering - Mobile
+     Product
+     Design
+     Growth & Marketing
+     Operations
+     Finance & Accounting
+     People & HR
+     Other
+
+2. seniority_level — EXACTLY one of the following. This list is also CLOSED:
+     Intern
+     Junior
+     Mid
+     Senior
+     Staff/Principal
+     Leadership
+
+3. rationale — ONE sentence explaining the classification.
+
+CORE RULE
+
+Classify by the FUNCTION THE ROLE ACTUALLY PERFORMS, not by the team or department
+name attached to it, and not by a single keyword in the title. Department labels are
+inconsistent across companies: one company's "Business Technology" team may hold
+platform engineers, another's may hold operations analysts. Read the title and
+description and decide what the person in this seat would spend their day doing.
+
+ENGINEERING - PLATFORM & PAYMENTS
+
+One category covers all non-mobile engineering: payments-specific systems
+(settlement, reconciliation engines, UPI, card rails, switches, gateways, ledgers,
+PSP and bank integrations) AND general infrastructure (CI/CD, cloud, Kubernetes,
+observability, SRE, databases, internal developer tooling, data platform).
+
+These were previously two categories. They are merged because job descriptions at
+these companies do not reliably state which systems a backend role touches, so the
+split could not be made from the text. Do not try to distinguish them.
+
+  "Engineering Manager - Financial Services" -> Engineering - Platform & Payments.
+  "Site Reliability Engineer - Big Data" -> Engineering - Platform & Payments.
+  "MySQL - Senior Lead Database Engineer" -> Engineering - Platform & Payments.
+
+Mobile work stays separate: Android, iOS, React Native, or mobile SDK roles are
+Engineering - Mobile.
+
+A payments keyword in the title does NOT make a role engineering. The role must
+BUILD or OPERATE systems:
+
+  "Product Management - Product Manager - UPI" -> Product. Owns a UPI product
+  roadmap; a product seat that happens to sit on a payments surface.
+
+  "Growth Management - Senior Manager - User Growth (UPI)" -> Growth & Marketing.
+  Drives UPI user acquisition, not the UPI system itself.
+
+  "Reconciliation Specialist" -> Finance & Accounting. Performs reconciliation as a
+  finance process; does not build the reconciliation engine.
+
+GROWTH & MARKETING vs PRODUCT vs OPERATIONS
+
+Growth & Marketing: acquiring, activating or monetising users and merchants — sales,
+business development, partnerships, account management, campaigns, brand, ad sales.
+
+Product: owning what gets built — roadmap, requirements, prioritisation, specs.
+
+Operations: keeping an existing process running day to day — support, back-office
+processing, logistics, facilities, field operations, service delivery.
+
+  "Govt. Ad Sales - Sr. Manager/DGM - Paytm Ads" -> Growth & Marketing. Selling ad
+  inventory is revenue generation, not process operation.
+
+  "Customer Support Agent - Executive - Bill Payments" -> Operations. Front-line
+  support resolving user issues on a running service.
+
+  "Associate, Startup Accounts" -> Growth & Marketing. Account management for a
+  customer segment is a go-to-market seat despite the generic Associate title.
+
+  "Facility Manager" -> Operations. Manages workplace facilities; "Manager" here
+  denotes a process owner, not a product or growth function.
+
+Collections and recovery roles are Credit & Risk, NOT Operations, even when the title
+reads like an operations job:
+
+  "Cluster Collections Manager - Nashik" -> Credit & Risk. Recovering delinquent
+  loans is a credit-risk function regardless of the regional-manager framing.
+
+"ANALYST" DETERMINES NOTHING
+
+The word "Analyst" in a title carries no categorical information. Classify by WHAT the
+analyst analyses:
+
+  "Growth/Business Analyst - Recharges & Utilities" -> Growth & Marketing. Analyses
+  growth metrics for a business line.
+
+  "Fraud Analyst" -> Credit & Risk. Analyses fraud and risk exposure.
+
+  "Financial Analyst" -> Finance & Accounting. Analyses company financials.
+
+Data & ML requires the role to BUILD models, pipelines, or data systems — not to
+consume dashboards and reports. A business analyst reading reports is not Data & ML;
+a data engineer building the warehouse is.
+
+  "Data Engineering - Senior / Lead Engineer" -> Data & ML. Builds data pipelines
+  and models, which is distinct from running the platform they sit on.
+
+SENIORITY
+
+Infer from title first: Intern; Associate/Analyst/Executive/Trainee -> Junior;
+unqualified IC titles -> Mid; "Senior" -> Senior; "Staff"/"Principal"/"Architect" ->
+Staff/Principal; "Head"/"Director"/"VP"/"Chief"/"General Manager" -> Leadership.
+
+A "Manager" or "Team Leader" title that manages a PROCESS rather than PEOPLE is Mid or
+Senior, not Leadership. Reserve Leadership for roles owning an org, a function, or
+multiple teams. An "Engineering Manager" of a single team is Senior, not Leadership.
+Use years-of-experience in the description to break ties; when the description gives
+no signal, prefer the more conservative (lower) level rather than guessing upward.
+
+RATIONALE MUST STAND ALONE
+
+Each rationale is stored and read on its own, detached from this batch. Every rationale
+must be independently intelligible and must name the evidence it used. NEVER refer to
+another posting in the batch. Phrases like "same as above", "as with the previous
+role", "similar to the earlier posting", or "ditto" are FORBIDDEN — a rationale
+containing one is useless and counts as a failed classification. Repeat the reasoning
+in full for every posting, even when two postings are near-identical.
+
+AMBIGUITY
+
+If a posting genuinely fits no category above, use Other and say explicitly in the
+rationale WHY it was ambiguous. Do not stretch a poor-fitting category to avoid Other,
+and do not reach for Other when a real category fits.
+
+OUTPUT FORMAT
+
+Return ONLY a JSON array. No prose before it, no prose after it, no markdown code
+fences. Each element must be an object with exactly these four keys:
+
+  {"id": <the integer id given to you>, "function_category": "<one of the 12>",
+   "seniority_level": "<one of the 6>", "rationale": "<one standalone sentence>"}
+
+Return one element for every posting given to you, in the same order. Do not skip
+postings. Do not add commentary.
+
+POSTINGS TO CLASSIFY
+
+{{POSTINGS}}

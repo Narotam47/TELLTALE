@@ -1,0 +1,86 @@
+companies:
+  # --- Greenhouse (public JSON API: /v1/boards/{slug}/jobs) ---
+  - name: Razorpay
+    slug: razorpay
+    careers_url: https://razorpay.com/careers/
+    adapter_type: greenhouse
+    endpoint_url: https://boards-api.greenhouse.io/v1/boards/razorpaysoftwareprivatelimited/jobs
+    enabled: true
+
+  - name: PhonePe
+    slug: phonepe
+    careers_url: https://www.phonepe.com/careers/job-openings/
+    adapter_type: greenhouse
+    endpoint_url: https://boards-api.greenhouse.io/v1/boards/phonepe/jobs
+    enabled: true
+
+  - name: Groww
+    slug: groww
+    careers_url: https://groww.in/careers
+    adapter_type: greenhouse
+    endpoint_url: https://boards.eu.greenhouse.io/v1/boards/groww/jobs
+    enabled: true
+
+  # --- Lever (public JSON API: /v0/postings/{slug}) ---
+  - name: Paytm
+    slug: paytm
+    careers_url: https://paytm.com/careers/
+    adapter_type: lever
+    endpoint_url: https://api.lever.co/v0/postings/paytm
+    enabled: true
+
+  - name: Zeta
+    slug: zeta
+    careers_url: https://www.zeta.tech/in/careers/
+    adapter_type: lever
+    endpoint_url: https://api.lever.co/v0/postings/zeta
+    enabled: true
+
+  # --- Darwinbox (HTML scrape via WordPress job page) ---
+  - name: Lendingkart
+    slug: lendingkart
+    careers_url: https://www.lendingkart.com/job/
+    adapter_type: darwinbox
+    endpoint_url: https://hrlendingkart.darwinbox.in/ms/candidatev2/main/careers
+    enabled: true
+
+  # --- Keka (JSON API: /careers/api/embedjobs/{portalName}/active/{identifier}) ---
+  - name: Jupiter
+    slug: jupiter
+    careers_url: https://jupiter.money/careers/
+    adapter_type: keka
+    endpoint_url: https://jupiter.keka.com/careers
+    keka_identifier: b5279857-cf81-4dde-a215-fc48957ee2b5
+    enabled: true
+
+  # --- CRED (custom Next.js SPA, needs headless scraper) ---
+  - name: CRED
+    slug: cred
+    careers_url: https://careers.cred.club/
+    adapter_type: custom
+    enabled: true
+
+  # --- Unverified: ATS platform not identified, disabled ---
+  - name: Zerodha
+    slug: zerodha
+    careers_url: https://careers.zerodha.com/
+    adapter_type: unknown
+    enabled: false
+
+  - name: BharatPe
+    slug: bharatpe
+    careers_url: https://bharatpe.com/career
+    adapter_type: unknown
+    enabled: false
+
+  - name: Pine Labs
+    slug: pinelabs
+    careers_url: https://www.pinelabs.com/careers/open-jobs
+    adapter_type: unknown
+    enabled: false
+
+  - name: Slice
+    slug: slice
+    careers_url: https://slice.bank.in/careers
+    adapter_type: unknown
+    enabled: false

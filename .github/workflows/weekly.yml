@@ -1,0 +1,179 @@
+name: Weekly Pipeline
+
+# Mondays 00:30 UTC = 06:00 IST, after Indian careers pages have settled overnight.
+# workflow_dispatch allows a manual run from the Actions tab.
+on:
+  schedule:
+    - cron: "30 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write # commit the refreshed database and brief back to the repo
+  issues: write # open an issue when the run fails
+
+concurrency:
+  group: weekly-pipeline
+  cancel-in-progress: false # never interrupt a run mid-write to the database
+
+env:
+  DATABASE_URL: sqlite:///telltale.db
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'groq' }}
+  PROMPT_VERSION: v3
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The default GITHUB_TOKEN is persisted so the commit step can push back.
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # ---------------------------------------------------------------- scrape
+      # Always runs: every adapter hits a public ATS endpoint and needs no key.
+      - name: Scrape careers pages
+        id: scrape
+        run: uv run telltale scrape 2>&1 | tee -a pipeline.log
+
+      # -------------------------------------------------------------- classify
+      # Classification is the only stage needing an LLM, and free tiers are not
+      # dependable in CI:
+      #   - Groq free tier: 200k tokens/day; one full pass is ~175k, so a single
+      #     re-run in the same day exhausts it.
+      #   - Gemini free tier: 20 generate_content requests/day PER MODEL; a pass
+      #     at batch 20 is 19 requests, leaving no margin for retries.
+      # A run that cannot classify is still worth completing: the scrape is the
+      # irreplaceable part (postings disappear once taken down), and signals over
+      # the previous classification remain valid. So a missing key or a spent
+      # quota downgrades the run rather than failing it.
+      - name: Check for an LLM key
+        id: llm
+        run: |
+          if [ -n "$GROQ_API_KEY" ] || [ -n "$GEMINI_API_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Classification skipped::No GROQ_API_KEY or GEMINI_API_KEY set. Scrape and signals still run; the brief falls back to a figures-only snapshot."
+          fi
+
+      - name: Classify postings
+        id: classify
+        if: steps.llm.outputs.available == 'true'
+        continue-on-error: true # a spent daily quota must not fail the whole run
+        run: |
+          uv run telltale classify --prompt-version "$PROMPT_VERSION" 2>&1 \
+            | tee -a pipeline.log
+
+      - name: Note partial classification
+        if: steps.classify.outcome == 'failure'
+        run: |
+          echo "::warning title=Classification incomplete::classify exited non-zero, most likely a provider quota limit. Classifications commit per batch, so completed batches were kept and the next run resumes."
+
+      # --------------------------------------------------------------- signals
+      - name: Compute signals
+        run: uv run telltale signals --prompt-version "$PROMPT_VERSION" 2>&1 | tee -a pipeline.log
+
+      # ----------------------------------------------------------------- brief
+      - name: Generate brief
+        if: steps.classify.outcome == 'success'
+        run: |
+          uv run telltale brief --prompt-version "$PROMPT_VERSION" 2>&1 | tee -a pipeline.log
+
+      - name: Generate snapshot brief
+        if: steps.classify.outcome != 'success'
+        run: |
+          uv run telltale brief --prompt-version "$PROMPT_VERSION" --snapshot \
+            --reason "classification did not complete in CI (missing key or provider quota)" \
+            2>&1 | tee -a pipeline.log
+
+      # ------------------------------------------------------------ checkpoint
+      # SQLite in WAL mode keeps committed rows in telltale.db-wal until a
+      # checkpoint. Without this the commit below would push an empty database.
+      - name: Checkpoint the database
+        run: uv run python scripts/checkpoint_db.py 2>&1 | tee -a pipeline.log
+
+      - name: Verify the database is self-contained
+        run: |
+          cp telltale.db /tmp/verify.db
+          uv run python - <<'PY'
+          import sqlite3, sys
+          con = sqlite3.connect("/tmp/verify.db")
+          n = con.execute("select count(*) from job_postings").fetchone()[0]
+          con.close()
+          print(f"copied .db alone holds {n} postings")
+          sys.exit(0 if n > 0 else 1)
+          PY
+
+      # ---------------------------------------------------------------- commit
+      - name: Commit results
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Only stage paths that exist: data/ is created on first run.
+          for p in telltale.db briefs data; do
+            [ -e "$p" ] && git add -A "$p"
+          done
+          if git diff --cached --quiet; then
+            echo "nothing changed; no commit"
+          else
+            # [skip ci] stops this push from re-triggering the workflow.
+            git commit -m "chore: weekly pipeline run [skip ci]"
+            git push
+          fi
+
+      # ------------------------------------------------------------------ logs
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-log-${{ github.run_id }}
+          path: pipeline.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      # --------------------------------------------------------------- failure
+      - name: Build failure report
+        if: failure()
+        id: failure_report
+        run: |
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          {
+            echo "The weekly pipeline failed."
+            echo
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Commit: ${{ github.sha }}"
+            echo "- Triggered by: ${{ github.event_name }}"
+            echo
+            echo "Last 60 log lines:"
+            echo '```'
+            tail -n 60 pipeline.log 2>/dev/null || echo "(no pipeline.log produced)"
+            echo '```'
+          } > failure.md
+
+      - name: Open an issue on failure
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Pipeline failed: ${{ steps.failure_report.outputs.date }}"
+          content-filepath: failure.md
+          labels: pipeline-failure, automated

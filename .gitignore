@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+.env
+.env.bak*
+.env.local
+.venv/
+venv/
+
+data/raw/
+
+*.db
+*.sqlite3
+# ...but the pipeline database IS the artifact: the weekly workflow commits it so
+# history is reproducible from a clone. WAL sidecars stay out — they are transient
+# and a checkpoint folds them back into the .db before commit.
+!telltale.db
+*.db-wal
+*.db-shm
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+.ruff_cache/
+.mypy_cache/
+
+*.log
