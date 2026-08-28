@@ -20,7 +20,9 @@ from telltale.storage.session import get_session
 
 st.set_page_config(page_title="TELLTALE", layout="wide")
 
-PROMPT_VERSION = "v1"
+# Must match the version the pipeline classifies at (PROMPT_VERSION in
+# .github/workflows/weekly.yml and VERSION_PROFILES in telltale/llm/client.py).
+PROMPT_VERSION = "v3"
 
 
 @st.cache_data(ttl=300)

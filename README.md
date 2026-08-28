@@ -48,6 +48,37 @@ number not present in the report, and `audit_numbers()` verifies that afterwards
 rather than trusting it — every figure in the body must appear in the signal JSON, or
 it is flagged. Section bullet counts are checked too, so the page stays a page.
 
+## Classification accuracy
+
+**86% category accuracy and 90% seniority accuracy on 50 hand-checked samples
+stratified across all 7 companies.** Both fields correct on 76%.
+
+| | correct | n |
+|---|---|---|
+| function_category | 43 | 50 |
+| seniority_level | 45 | 50 |
+| both | 38 | 50 |
+
+Accuracy is not uniform. Credit & Risk, Engineering - Platform & Payments,
+Finance & Accounting, People & HR, Data & ML and Compliance & Regulatory were all
+correct on every sampled posting. The errors concentrate in two places:
+
+- **Product, 57% (4/7)** — leaked to Data & ML, Operations and Growth & Marketing.
+- **Growth & Marketing, 70% (7/10)** — two postings went to Engineering - Platform
+  & Payments.
+
+Seniority errors are all one step wide (Mid↔Junior, Mid↔Senior, Senior→Leadership),
+never a jump across the scale.
+
+Treat the Product boundary as the known weak spot when reading a brief. Reproduce or
+re-measure with:
+
+```bash
+uv run python scripts/eval_classification.py sample --out eval/sample_final.csv
+# fill in correct_category / correct_seniority by hand, then:
+uv run python scripts/eval_classification.py report --csv eval/sample_final.csv
+```
+
 ## Automation
 
 `.github/workflows/weekly.yml` runs the pipeline every Monday at 00:30 UTC (06:00 IST),
@@ -108,11 +139,18 @@ with, so a version stays reproducible after the fact:
 | v2 | raw | 600 | 10 | 13 |
 | v3 | boilerplate-stripped | 400 | 10 | **12** (the merged taxonomy) |
 
-**v3 is the version to use for new work.** It carries the merged taxonomy from
-`docs/taxonomy.md`. The shipping dataset is currently 367 rows stored under `v1`,
-migrated in place to 12 categories by SQL — so `v1` *rows* and the `v3` *prompt* agree,
-but `classify_v1.txt` is left unedited as a historical record and would emit
-13-category labels if re-run. Do not classify at v1 again.
+**v3 is the shipping version** — 367 rows, the merged 12-category taxonomy from
+`docs/taxonomy.md`. The pipeline, the workflow and the dashboard all read v3.
+
+`v1` is retained as history: its 367 rows were migrated in place to 12 categories by
+SQL, but `classify_v1.txt` is left unedited as a record and would emit 13-category
+labels if re-run. Do not classify at v1 again.
+
+v3 was completed across three models after free-tier daily caps were hit mid-run
+(`groq/openai/gpt-oss-120b` 170 rows, `gemini-3.1-flash-lite` 177,
+`gemini-3.6-flash` 20). `model_name` is stored per row, so a slice by model is
+available — worth remembering given the ~9% category disagreement measured between
+model families on identical input.
 
 A `-suffix` selects the same prompt and window profile while storing under its own
 label: `--prompt-version v3-gemini` uses the v3 prompt but records rows as
